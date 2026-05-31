@@ -2,7 +2,7 @@
 
 > Type: `general`
 > Updated: `2026-05-31`
-> Summary: 同步当前安装、配置与部署模型，并补记 shared packaged-install contract 的跨平台启动语义：packaged installer 不再直接决定底层 `service-manager`；first-install 走平台默认登录后自动启动，repair 保持现有启动方式。
+> Summary: 同步当前安装、配置与部署模型，并补记 shared packaged-install contract 的跨平台启动语义：packaged installer 不再直接决定底层 `service-manager`；first-install 走平台默认登录后自动启动，repair 保持现有启动方式；Windows NSIS 包装层现已固定为 `probe + install + 结果页` 模型。
 
 ## 1. 范围
 
@@ -195,9 +195,20 @@ codex-remote packaged-install [flags]
 
 - Windows
   - 首期要求交付 `NSIS installer`
-  - wrapper 应携带 release payload `codex-remote.exe`，并调用 `codex-remote packaged-install`
-  - wrapper 不应直接解析长 stdout；应通过 `-result-file` 一类 machine-readable 结果文件读取 `setupURL/adminURL/logPath/error`
-  - wrapper 当前不必先 probe 才能保证 first-install / repair 语义正确；shared `packaged-install` 本身已拥有这部分启动语义
+  - wrapper 应携带 release payload `codex-remote.exe`，并顺序调用：
+    - `codex-remote packaged-install-probe`
+    - `codex-remote packaged-install`
+  - wrapper 不应直接解析长 stdout；应通过 `-result-file` 一类 machine-readable 结果文件读取 probe/result
+  - `packaged-install-probe` 在 Windows 上已不是可选富 UI 信息，而是结果页状态判定输入：
+    - 区分 `first_install` 与 `repair`
+    - 区分同版本重装修复与升级
+    - 驱动 `Continue WebSetup` 是否出现
+  - NSIS UI 当前固定为 `MUI2 + finish/result page`：
+    - 不再用额外 `MessageBox` 收尾
+    - `Continue WebSetup` 只在 `probe.mode == first_install` 且 `result.setupRequired == true` 时出现
+    - `Continue WebSetup` 只在结果页点击后 handoff，不允许安装过程中自动打开浏览器
+    - `Open Admin UI` 与 `Continue WebSetup` 互斥
+    - 结果页至少支持 `en` / `zh-CN`
 - macOS
   - 首期形态已收口为 `dmg + Install Codex Remote.app`
   - installer app 自身是 universal，可同时在 Intel / Apple Silicon 上原生运行
@@ -630,12 +641,36 @@ macOS packaged installer 的额外验证要求：
    - 失败页能看到 `error` 和日志路径
    - `setupRequired=true` 时会给出 WebSetup 打开入口
 
+Windows NSIS installer 的额外验证要求：
+
+1. 在 release 归档生成后，通过 `scripts/release/build-windows-nsis.sh` 真实构建：
+   - `codex-remote-feishu_<version>_windows_amd64_installer.exe`
+2. 通过显式的 installer test capture / override 通道做结果页 smoke，而不是靠桌面点击自动化猜测状态。
+3. 至少验证这些状态：
+   - first install + `setupRequired=true`
+   - first install + `setupRequired=false`
+   - 同版本 repair
+   - failure
+4. 验证结果页与 handoff 语义：
+   - `Continue WebSetup` 只在 fresh install + setup required 出现
+   - repair 不会触发 WebSetup handoff
+   - `Open Admin UI` 与 `Continue WebSetup` 互斥
+   - 中英文关键文案都能被断言
+5. 结果页 smoke 的职责是验证 NSIS 包装层状态映射与 handoff 语义；它不替代在线安装脚本的现有 PowerShell smoke。
+
 当前 `installer-smoke` workflow 已额外在 `macos-latest` runner 上做两件事：
 
 1. 从生产 / beta fixture 真实构建 `codex-remote-feishu_*_darwin_universal_installer.dmg`
 2. 校验生成的 `dmg` 已进入对应 `checksums.txt`
 
 这条链的职责是验证“GitHub mac runner 能真实把包打出来”；它不替代后续的 GUI 运行态交互 smoke。
+
+当前 `installer-smoke` workflow 也已额外覆盖 Windows packaged installer：
+
+1. 在 `ubuntu-latest` 上安装 `NSIS` 并真实构建 production / beta 两份 installer
+2. 在 `windows-latest` 上运行：
+   - 现有 `install-release.ps1` smoke
+   - `scripts/check/smoke-windows-nsis-installer.ps1` 的结果页 / handoff smoke
 
 ## 7. 飞书配置模板
 
