@@ -501,7 +501,7 @@ MCP request 卡片当前新增的可视语义：
   - `maintenance` 分组当前可见 `/admin`、`/upgrade`、`/debug`、`/help`、`/menu`
   - `switch_target` 分组当前还带一层 mode-aware display projection：
     - `codex` 只显示一个入口，标题为 `工作会话`，实际命令是 canonical `/workspace`
-    - `claude` 继续复用同一组结构，但只显示 `/workspace new dir`、`/workspace detach`、`/list`、`/use`
+    - `claude` 现在也直接显示 canonical `/workspace` 入口，并落到与 `codex` 同构的 workspace root page：`切换`、`从目录新建`、`从 GIT URL 新建`、`从 Worktree 新建`、`解除接管`
     - `vscode` 继续分别显示 `/list`、`/use`、`/useall`
   - orchestrator 与 projector 共同复用该策略函数，避免两侧分叉
 - 当前所有可 replace 的 Feishu UI 导航，都采用同一套 lifecycle 策略：
