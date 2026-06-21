@@ -165,6 +165,7 @@
 
 ### 6.4 `draft`
 
+- [repository-review-2026-06.md](./draft/repository-review-2026-06.md)
 - [acp-claude-integration-design.md](./draft/acp-claude-integration-design.md)
 - [backend-aware-command-catalog-design.md](./draft/backend-aware-command-catalog-design.md)
 - [app-server-third-batch-product-directions.md](./draft/app-server-third-batch-product-directions.md)
